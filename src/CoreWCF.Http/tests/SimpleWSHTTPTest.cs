@@ -54,9 +54,8 @@ namespace WSHttp
             }
         }
 
-#if NETCOREAPP3_1_OR_GREATER // On NetFx, Negotiate auth is forwarded to Windows auth, but Windows auth on Kestrel is not supported on NetFx
-        [Fact, Description("transport-security-with-an-anonymous-client")]
-        [Trait("Category", "WindowsOnly")]
+        // On NetFx, Negotiate auth is forwarded to Windows auth, but Windows auth on Kestrel is not supported on NetFx
+        [WindowsNetCoreOnlyFact, Description("transport-security-with-an-anonymous-client")]
         public void WSHttpRequestReplyEchoStringTransportSecurity()
         {
             string testString = new string('a', 3000);
@@ -76,11 +75,9 @@ namespace WSHttp
                 ((IChannel)channel).Open();
                 string result = channel.EchoString(testString);
                 Assert.Equal(testString, result);
-                Console.WriteLine("read ");
                 ((IChannel)channel).Close();
             }
         }
-#endif
 
         [Fact , Description("Demuxer-failure")]
         public void WSHttpRequestReplyWithTransportMessageEchoStringDemuxFailure()
@@ -103,7 +100,6 @@ namespace WSHttp
                 };
                 ClientContract.IEchoService channel = factory.CreateChannel();
                 ((IChannel)channel).Open();
-                Thread.Sleep(6000);
                 try
                 {
                     channel.EchoString(testString);
@@ -119,7 +115,6 @@ namespace WSHttp
         [Fact , Description("user-validation-failure")]
         public void WSHttpRequestReplyWithTransportMessageEchoStringUserValidationFailure()
         {
-            string testString = new string('a', 3000);
             IWebHost host = ServiceHelper.CreateHttpsWebHostBuilder<WSHttpTransportWithMessageCredentialWithUserNameExpire>(_output).Build();
             using (host)
             {
@@ -171,14 +166,11 @@ namespace WSHttp
                 ((IChannel)channel).Open();
                 string result = channel.EchoString(testString);
                 Assert.Equal(testString, result);
-                Thread.Sleep(5000);
-
                 ((IChannel)channel).Close();
-                Console.WriteLine("read ");
             }
         }
 
-         [Fact, Description("transport-security-with-certificate-authentication")]
+        [Fact, Description("transport-security-with-certificate-authentication")]
         internal void WSHttpRequestReplyWithTransportMessageCertificateEchoString()
         {
             string testString = new string('a', 3000);
@@ -201,13 +193,11 @@ namespace WSHttp
                 string result = channel.EchoString(testString);
                 Assert.Equal(testString, result);
                 ((IChannel)channel).Close();
-                Console.WriteLine("read ");
             }
         }
 
-#if NETCOREAPP3_1_OR_GREATER // Windows Auth on Kestrel not supported on NetFx
-        [Fact, Description("transport-security-with-windows-authentication-kestrel")]
-        [Trait("Category", "WindowsOnly")]
+
+        [WindowsNetCoreOnlyFact, Description("transport-security-with-windows-authentication-kestrel")]
         internal void WSHttpRequestImpersonateWithKestrel()
         {
             string testString = new string('a', 3000);
@@ -230,11 +220,9 @@ namespace WSHttp
                 ((IChannel)channel).Close();
             }
         }
-#endif
 
-        [Fact]
+        [WindowsOnlyFact]
         [Description("transport-security-with-windows-authentication-httpsys")]
-        [Trait("Category", "WindowsOnly")]  // HttpSys not supported on Linux
 #if NET5_0_OR_GREATER
         [System.Runtime.Versioning.SupportedOSPlatform("windows")]
 #endif
@@ -261,8 +249,7 @@ namespace WSHttp
             }
         }
 
-        [Fact, Description("no-security-with-an-anonymous-client-using-impersonation")]
-        [Trait("Category", "WindowsOnly")]
+        [WindowsOnlyFact, Description("no-security-with-an-anonymous-client-using-impersonation")]
         public void WSHttpRequestImpersonateFailsWithoutAuthentication()
         {
             string testString = new string('a', 3000);
@@ -286,9 +273,8 @@ namespace WSHttp
             }
         }
 
-        [Fact]
+        [WindowsOnlyFact]
         [Description("no-security-with-an-anonymous-client-using-impersonation-httpsys")]
-        [Trait("Category", "WindowsOnly")]  // HttpSys not supported on Linux
 #if NET5_0_OR_GREATER
         [System.Runtime.Versioning.SupportedOSPlatform("windows")]
 #endif
