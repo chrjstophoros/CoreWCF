@@ -75,12 +75,11 @@ namespace CoreWCF.Dispatcher
                     ValidateInstanceType(operation.Parent.Type, sync.Method);
                 }
 
-                //AsyncMethodInvoker async = this.invoker as AsyncMethodInvoker;
-                //if (async != null)
-                //{
-                //    this.ValidateInstanceType(operation.Parent.Type, async.BeginMethod);
-                //    this.ValidateInstanceType(operation.Parent.Type, async.EndMethod);
-                //}
+                if (Invoker is AsyncMethodInvoker async)
+                {
+                    ValidateInstanceType(operation.Parent.Type, async.BeginMethod);
+                    ValidateInstanceType(operation.Parent.Type, async.EndMethod);
+                }
 
                 if (Invoker is TaskMethodInvoker task)
                 {

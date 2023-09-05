@@ -6,6 +6,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Reflection;
 using System.Runtime.ExceptionServices;
+using System.Threading.Tasks;
+
 using CoreWCF.Description;
 
 namespace CoreWCF.Dispatcher
@@ -21,7 +23,7 @@ namespace CoreWCF.Dispatcher
     internal static class InvokerUtil
     {
         private const BindingFlags DefaultBindingFlags = BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public;
-        // private readonly CriticalHelper _helper;
+        //private readonly CriticalHelper _helper;
 
         //public InvokerUtil()
         //{
@@ -44,15 +46,15 @@ namespace CoreWCF.Dispatcher
             return CriticalHelper.GenerateInvokeDelegate(method, out inputParameterCount, out outputParameterCount);
         }
 
-        //internal InvokeBeginDelegate GenerateInvokeBeginDelegate(MethodInfo method, out int inputParameterCount)
-        //{
-        //    return helper.GenerateInvokeBeginDelegate(method, out inputParameterCount);
-        //}
+        internal static InvokeBeginDelegate GenerateInvokeBeginDelegate(MethodInfo method, out int inputParameterCount)
+        {
+            return CriticalHelper.GenerateInvokeBeginDelegate(method, out inputParameterCount);
+        }
 
-        //internal InvokeEndDelegate GenerateInvokeEndDelegate(MethodInfo method, out int outputParameterCount)
-        //{
-        //    return helper.GenerateInvokeEndDelegate(method, out outputParameterCount);
-        //}
+        internal static InvokeEndDelegate GenerateInvokeEndDelegate(MethodInfo method, out int outputParameterCount)
+        {
+            return CriticalHelper.GenerateInvokeEndDelegate(method, out outputParameterCount);
+        }
 
         private static class CriticalHelper
         {
@@ -154,38 +156,91 @@ namespace CoreWCF.Dispatcher
                 return lambda;
             }
 
-            //public InvokeBeginDelegate GenerateInvokeBeginDelegate(MethodInfo method, out int inputParameterCount)
-            //{
-            //    ParameterInfo[] parameters = method.GetParameters();
-            //    var inputCount = parameters.Length;
-            //    inputParameterCount = inputCount;
+            internal static InvokeBeginDelegate GenerateInvokeBeginDelegate(MethodInfo methodInfo, out int inputParameterCount)
+            {
+                ParameterInfo[] parameters = methodInfo.GetParameters();
+                bool returnsValue = methodInfo.ReturnType != typeof(void);
+                int paramCount = parameters.Length;
 
-            //    InvokeBeginDelegate lambda =
-            //        delegate(object target, object[] inputs, AsyncCallback callback, object state)
-            //        {
-            //            object[] inputsLocal = new object[inputCount];
-            //            for (var i = 0; i < inputCount; i++)
-            //            {
-            //                inputsLocal[i] = inputs[i];
-            //            }
-            //            inputsLocal[inputCount] = callback;
-            //            inputsLocal[inputCount + 1] = state;
-            //            object result = method.Invoke(target, inputs);
-            //            return result as IAsyncResult;
-            //        };
+                var inputParamPositions = new List<int>();
+                for (int i = 0; i < parameters.Length; i++)
+                {
+                    if (ServiceReflector.FlowsIn(parameters[i]))
+                    {
+                        inputParamPositions.Add(i);
+                    }
+                }
 
-            //    return lambda;
-            //}
+                int[] inputPos = inputParamPositions.ToArray();
+                inputParameterCount = inputPos.Length - 2;  // Subtracting 2 to ignore callback and state
 
-            //public InvokeEndDelegate GenerateInvokeEndDelegate(MethodInfo method, out int outParameterCount)
-            //{
+                return (target, inputs, callback, state) =>
+                {
+                    object[] paramsLocal = null;
+                    if (paramCount > 0)
+                    {
+                        paramsLocal = new object[paramCount];
+                        for (int i = 0; i < inputPos.Length; i++)
+                        {
+                            paramsLocal[inputPos[i]] = inputs[i];
+                        }
+                    }
 
-            //    InvokeEndDelegate lambda =
-            //        delegate(object target, object[] outputs, IAsyncResult result)
-            //        {
+                    return Task.Run(() =>
+                    {
+                        object resultInvoke = null;
+                        try
+                        {
+                            if (returnsValue)
+                            {
+                                resultInvoke = methodInfo.Invoke(target, paramsLocal);
+                            }
+                            else
+                            {
+                                methodInfo.Invoke(target, paramsLocal);
+                            }
+                        }
+                        catch (TargetInvocationException tie)
+                        {
+                            ExceptionDispatchInfo.Capture(tie.InnerException).Throw();
+                        }
+                        return (resultInvoke, paramsLocal);
+                    });
+                };
+            }
 
-            //        }
-            //}
+
+            public static InvokeEndDelegate GenerateInvokeEndDelegate(MethodInfo methodInfo, out int outputParameterCount)
+            {
+                ParameterInfo[] parameters = methodInfo.GetParameters();
+                var outputParamPositions = new List<int>();
+                for (int i = 0; i < parameters.Length; i++)
+                {
+                    if (ServiceReflector.FlowsOut(parameters[i]))
+                    {
+                        outputParamPositions.Add(i);
+                    }
+                }
+
+                int[] outputPos = outputParamPositions.ToArray();
+
+                outputParameterCount = outputPos.Length;
+
+                return (asyncResult, callback, state) =>
+                {
+                    Task<(object resultInvoke, object[] paramsLocal)> task = (Task<(object resultInvoke, object[] paramsLocal)>)asyncResult;
+                    (object resultInvoke, object[] paramsLocal) = task.GetAwaiter().GetResult();
+                    object[] outputs = new object[outputPos.Length - 1];  // Subtracting 1 to ignore state
+
+                    for (int i = 0; i < outputPos.Length; i++)
+                    {
+                        Debug.Assert(paramsLocal != null);
+                        outputs[i] = paramsLocal[outputPos[i]];
+                    }
+
+                    return (resultInvoke, outputs);
+                };
+            }
         }
     }
 }

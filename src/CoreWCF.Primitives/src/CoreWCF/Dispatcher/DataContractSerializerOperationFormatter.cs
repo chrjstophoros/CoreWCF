@@ -68,8 +68,8 @@ namespace CoreWCF.Dispatcher
         private static readonly Type s_typeOfIEnumerable = typeof(IEnumerable);
         private static readonly Type s_typeOfIEnumerableGeneric = typeof(IEnumerable<>);
 
-        protected MessageInfo requestMessageInfo;
-        protected MessageInfo replyMessageInfo;
+        protected MessageInfo requestMessageInfo { get; }
+        protected MessageInfo replyMessageInfo { get; }
         private readonly IList<Type> _knownTypes;
 
         private IXsdDataContractExporter _dataContractExporter;

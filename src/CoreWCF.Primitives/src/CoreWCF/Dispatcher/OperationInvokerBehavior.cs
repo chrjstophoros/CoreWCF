@@ -62,8 +62,8 @@ namespace CoreWCF.Dispatcher
                 if (description.BeginMethod != null)
                 {
                     // only async method is present on the contract
-                    throw new PlatformNotSupportedException();
-                    //dispatch.Invoker = new AsyncMethodInvoker(description.BeginMethod, description.EndMethod);
+                    //throw new PlatformNotSupportedException();
+                    dispatch.Invoker = new AsyncMethodInvoker(description.BeginMethod, description.EndMethod);
                 }
             }
         }
